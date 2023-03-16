@@ -1,14 +1,25 @@
 from lux.kit import obs_to_game_state, GameState
 from lux.config import EnvConfig
-from lux.utils import direction_to, my_turn_to_place_factory
+from lux.utils import direction_to, my_turn_to_place_factory, navigate_from_to
 import numpy as np
 import sys
 import logging
 
-
-
-# init logging
 logging.basicConfig(filename="Logs/agent.log", level=logging.INFO)
+# logging.info(f"factory distance: {factory_distances}")
+
+"""
+CONSTANT VARIABLES
+"""
+FACTORY_WATER_LIMIT = 15
+FACTORY_ICE_LIMIT = 60
+FACTORY_MINIMUM_ICE_WATER_PROD = 12
+LIGHT_ROBOT_WATER_ICE_LIMIT = 20 # minimum resources for robot to directly go to endangered factory
+HEAVY_ROBOT_WATER_ICE_LIMIT = 100
+ROBOT_POWER_LIMIT = 20
+LIGHT_ROBOT_CARGO_LIMIT = 100
+HEAVY_ROBOT_CARGO_LIMIT = 1000
+
 
 
 class Agent():
@@ -17,7 +28,146 @@ class Agent():
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         np.random.seed(0)
         self.env_cfg: EnvConfig = env_cfg
-        logging.info(f"player: {self.player}")
+        self.factory_tiles, self.factory_units = [], []
+
+    def send_unit_to_dig_ice(self,unit,unit_id,game_state,closest_factory_tile,adjacent_to_factory):
+        actions = dict()
+        ice_map = game_state.board.ice
+        ice_tile_locations = np.argwhere(ice_map == 1)
+
+        if unit.cargo.ice < 40:
+            ice_tile_distances = np.mean((ice_tile_locations - unit.pos) ** 2, 1)
+            closest_ice_tile = ice_tile_locations[np.argmin(ice_tile_distances)]
+            if np.all(closest_ice_tile == unit.pos):
+                if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state):
+                    actions[unit_id] = [unit.dig(repeat=0, n=1)]
+            else:
+                direction = direction_to(unit.pos, closest_ice_tile)
+                move_cost = unit.move_cost(game_state, direction)
+                if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
+                    actions[unit_id] = [unit.move(direction, repeat=0, n=1)]
+        # else if we have enough ice, we go back to the factory and dump it.
+        elif unit.cargo.ice >= 40:
+            direction = direction_to(unit.pos, closest_factory_tile)
+            if adjacent_to_factory:
+                if unit.power >= unit.action_queue_cost(game_state):
+                    actions[unit_id] = [unit.transfer(direction, 0, unit.cargo.ice, repeat=0)]
+            else:
+                move_cost = unit.move_cost(game_state, direction)
+                if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
+                    actions[unit_id] = [unit.move(direction, repeat=0, n=1)]
+        return actions
+    
+
+    def send_unit_home(self,unit,unit_id,closest_base):
+
+        pass
+    
+    def navigate_unit(self,unit, unit_id,target_pos):
+        actions = dict()
+
+        direction_orders = navigate_from_to(unit.pos,target_pos)
+        if direction_orders[0] != 0:
+            actions[unit_id] = [unit.move(direction_orders[0],repeat=0,n=direction_orders[1])]
+        if direction_orders[2] != 0:
+            actions[unit_id] = [unit.move(direction_orders[2],repeat=0,n=direction_orders[3])]
+        actions[unit_id] = [unit.recharge(100,repeat=1,n=1)]
+        logging.info(f"CHECK IF NAVIGATION WORKS! Possibly directions for x direction are overwriten. Append orders to the array instead!")
+
+        return actions
+
+        
+    def evaluate_surrounding_resource_availability(self,game_state,factory):
+        ice_map = game_state.board.ice
+        ice_tile_locations = np.argwhere(ice_map == 1)
+        ore_map = game_state.board.ore
+        ore_tile_locations = np.argwhere(ore_map == 1)
+
+
+        pass
+
+    def give_factory_order(self,unit_id,factory,game_state):
+        actions = dict()
+        
+        # build heavy robot if there are enough resources
+        if factory.power >= self.env_cfg.ROBOTS["HEAVY"].POWER_COST and \
+        factory.cargo.metal >= self.env_cfg.ROBOTS["HEAVY"].METAL_COST:
+            actions[unit_id] = factory.build_heavy()
+        # prefer to build smaller robots first
+        elif factory.power >= self.env_cfg.ROBOTS["LIGHT"].POWER_COST and \
+        factory.cargo.metal >= self.env_cfg.ROBOTS["LIGHT"].METAL_COST:
+            actions[unit_id] = factory.build_light()
+        # water surrounding to grow lichen tiles; eventually overrides factory action?
+        elif factory.water_cost(game_state) <= factory.cargo.water / 5 - 200:
+            actions[unit_id] = factory.water()
+
+        return actions
+    
+
+    
+    def path_to_closest_factory(self,game_state,unit):
+        pass
+
+    
+    def track_closest_factory(self,unit):
+        closest_factory = None
+        adjacent_to_factory = False
+        if len(self.factory_tiles) > 0:
+            factory_distances = np.mean((self.factory_tiles - unit.pos) ** 2, 1)
+            closest_factory_tile = self.factory_tiles[np.argmin(factory_distances)]
+            closest_factory = self.factory_units[np.argmin(factory_distances)]
+            adjacent_to_factory = np.mean((closest_factory_tile - unit.pos) ** 2) == 0
+            return [closest_factory, closest_factory_tile, adjacent_to_factory]
+        
+
+    def gather_resources(self,game_stage,unit):
+        free_cargo = LIGHT_ROBOT_CARGO_LIMIT if unit.unit_type == "LIGHT" else HEAVY_ROBOT_CARGO_LIMIT
+        free_cargo -= (unit.cargo.ice+unit.cargo.ore+unit.cargo.water+unit.cargo.metal)
+        if free_cargo > 0:
+            # send unit to get resources
+            pass
+        else:
+            # send unit to closest base
+            pass
+    
+    def give_units_order(self,game_state):
+        actions = dict()
+        units = game_state.units[self.player]
+        water_unit_sent = [0] * len(self.factory_units) # do not cancel action queue of all units
+        last_factory_id = "xxxxxxxx"
+
+        for unit_id, unit in units.items():
+
+            # track the closest factory
+            [closest_factory,closest_factory_tile,adjacent_to_factory] = self.track_closest_factory(unit)
+
+            # save unit from running out of power
+            if unit.power < ROBOT_POWER_LIMIT:
+                actions[unit_id] = [unit.recharge(50,repeat=True,n=1)]
+            # emergency: closest factory is thirsty!
+            if closest_factory.cargo.water < FACTORY_WATER_LIMIT and closest_factory.cargo.ice < FACTORY_ICE_LIMIT \
+                and (not water_unit_sent and closest_factory.unit_id != last_factory_id):
+                if (unit.cargo.ice / 4) + unit.cargo.water > LIGHT_ROBOT_WATER_ICE_LIMIT \
+                    if unit.unit_type=="LIGHT" else HEAVY_ROBOT_WATER_ICE_LIMIT:
+                    #send unit to factory, transfer water and dont run out of power
+                    water_unit_sent = 1
+                    last_factory_id = closest_factory.unit_id
+                    pass
+
+                else:
+                     # send unit to get water; dont run out of power
+                    water_unit_sent = 0
+                    pass
+            else:
+                # send roboter farming
+                actions.update(self.gather_resources(game_state,unit))
+                pass
+            
+
+        actions.update(self.send_unit_to_dig_ice(unit,unit_id,game_state,closest_factory_tile,adjacent_to_factory))
+
+        return actions
+            
 
     def early_setup(self, step: int, obs, remainingOverageTime: int = 60):
         if step == 0:
@@ -30,12 +180,9 @@ class Agent():
             # how much water and metal you have in your starting pool to give to new factories
             water_left = game_state.teams[self.player].water
             metal_left = game_state.teams[self.player].metal
-            logging.info(f"water_left: {water_left}")
-            logging.info(f"metal_left: {metal_left}")
 
             # how many factories you have left to place
             factories_to_place = game_state.teams[self.player].factories_to_place
-            logging.info(f"factories_to_place: {factories_to_place}")
             # whether it is your turn to place a factory
             my_turn_to_place = my_turn_to_place_factory(game_state.teams[self.player].place_first, step)
             if factories_to_place > 0 and my_turn_to_place:
@@ -57,54 +204,15 @@ class Agent():
 
         game_state = obs_to_game_state(step, self.env_cfg, obs)
         factories = game_state.factories[self.player]
-        game_state.teams[self.player].place_first
-        factory_tiles, factory_units = [], []
+        game_state.teams[self.player].place_first #what's the purpose of this line? 
+        # loop over all own factories
         for unit_id, factory in factories.items():
-            if factory.power >= self.env_cfg.ROBOTS["HEAVY"].POWER_COST and \
-            factory.cargo.metal >= self.env_cfg.ROBOTS["HEAVY"].METAL_COST:
-                actions[unit_id] = factory.build_heavy()
-            if factory.water_cost(game_state) <= factory.cargo.water / 5 - 200:
-                actions[unit_id] = factory.water()
+            actions.update(self.give_factory_order(unit_id,factory,game_state))
             factory_tiles += [factory.pos]
-            factory_units += [factory]
-        factory_tiles = np.array(factory_tiles)
+            self.factory_units += [factory]            
 
-        units = game_state.units[self.player]
-        ice_map = game_state.board.ice
-        ice_tile_locations = np.argwhere(ice_map == 1)
-        for unit_id, unit in units.items():
+        self.factory_tiles = np.array(factory_tiles)
 
-            # track the closest factory
-            closest_factory = None
-            adjacent_to_factory = False
-            if len(factory_tiles) > 0:
-                factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
-                closest_factory_tile = factory_tiles[np.argmin(factory_distances)]
-                closest_factory = factory_units[np.argmin(factory_distances)]
-                adjacent_to_factory = np.mean((closest_factory_tile - unit.pos) ** 2) == 0
+        actions.update(self.give_units_order(game_state))
 
-                # previous ice mining code
-                if unit.cargo.ice < 40:
-                    ice_tile_distances = np.mean((ice_tile_locations - unit.pos) ** 2, 1)
-                    closest_ice_tile = ice_tile_locations[np.argmin(ice_tile_distances)]
-                    if np.all(closest_ice_tile == unit.pos):
-                        if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state):
-                            actions[unit_id] = [unit.dig(repeat=0, n=1)]
-                    else:
-                        direction = direction_to(unit.pos, closest_ice_tile)
-                        move_cost = unit.move_cost(game_state, direction)
-                        if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
-                            actions[unit_id] = [unit.move(direction, repeat=0, n=1)]
-                # else if we have enough ice, we go back to the factory and dump it.
-                elif unit.cargo.ice >= 40:
-                    direction = direction_to(unit.pos, closest_factory_tile)
-                    if adjacent_to_factory:
-                        if unit.power >= unit.action_queue_cost(game_state):
-                            actions[unit_id] = [unit.transfer(direction, 0, unit.cargo.ice, repeat=0)]
-                    else:
-                        move_cost = unit.move_cost(game_state, direction)
-                        if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
-                            actions[unit_id] = [unit.move(direction, repeat=0, n=1)]
-
-        # logging.info(f"actions: {actions}")
         return actions
