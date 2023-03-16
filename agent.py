@@ -14,12 +14,13 @@ CONSTANT VARIABLES
 FACTORY_WATER_LIMIT = 15
 FACTORY_ICE_LIMIT = 60
 FACTORY_MINIMUM_ICE_WATER_PROD = 12
-LIGHT_ROBOT_WATER_ICE_LIMIT = 20 # minimum resources for robot to directly go to endangered factory
-HEAVY_ROBOT_WATER_ICE_LIMIT = 100
 ROBOT_POWER_LIMIT = 20
 LIGHT_ROBOT_CARGO_LIMIT = 100
 HEAVY_ROBOT_CARGO_LIMIT = 1000
-
+# minimum amount of resources for robot to directly go to endangered factory instead of farm more resources 
+# when factory runs out of water
+LIGHT_ROBOT_WATER_ICE_THRESHOLD = 20 
+HEAVY_ROBOT_WATER_ICE_THRESHOLD = 100
 
 
 class Agent():
@@ -109,7 +110,7 @@ class Agent():
         pass
 
     
-    def track_closest_factory(self,unit):
+    def locate_closest_factory(self,unit):
         closest_factory = None
         adjacent_to_factory = False
         if len(self.factory_tiles) > 0:
@@ -118,6 +119,44 @@ class Agent():
             closest_factory = self.factory_units[np.argmin(factory_distances)]
             adjacent_to_factory = np.mean((closest_factory_tile - unit.pos) ** 2) == 0
             return [closest_factory, closest_factory_tile, adjacent_to_factory]
+        
+
+    def locate_closest_ice_tile(self,game_state,unit):
+        closest_ice_tile = None
+        on_ice_tile = False
+        ice_map = game_state.board.ice
+        ice_tile_locations = np.argwhere(ice_map == 1)
+        ice_tile_distances = np.mean((ice_tile_locations - unit.pos) ** 2,1)
+        closest_ice_tile = ice_tile_locations[np.argmin(ice_tile_distances)]
+        on_ice_tile = np.all(closest_ice_tile == unit.pos)
+        return [closest_ice_tile, on_ice_tile]
+    
+
+    def locate_closest_ore_tile(self,game_state,unit):
+        closest_ore_tile = None
+        on_ore_tile = False
+        ore_map = game_state.board.ore_tile
+        ore_tile_locations = np.argwhere(ore_map == 1)
+        ore_tile_distances = np.mean((ore_tile_locations - unit.pos) ** 2,1)
+        closest_ore_tile = ore_tile_locations[np.argmin(ore_tile_distances)]
+        on_ore_tile = np.all(closest_ore_tile == unit.pos)
+        return [closest_ore_tile, on_ore_tile]
+    
+    def navigate_to_factory(self,game_state,unit):
+
+
+        pass
+
+
+    def navigate_to_ice_tile(self,game_state,unit):
+
+        pass
+
+
+    def navigate_to_ore_tile(self,game_state,unit):
+
+        pass
+        
         
 
     def gather_resources(self,game_stage,unit):
@@ -144,12 +183,16 @@ class Agent():
             # save unit from running out of power
             if unit.power < ROBOT_POWER_LIMIT:
                 actions[unit_id] = [unit.recharge(50,repeat=True,n=1)]
-            # emergency: closest factory is thirsty!
+            # emergency: closest factory is thirsty! check if factory has enough water/ ice, a robot was not already
+            # send to this specfic factory for the case 2 factories run out of water at the same time
             if closest_factory.cargo.water < FACTORY_WATER_LIMIT and closest_factory.cargo.ice < FACTORY_ICE_LIMIT \
                 and (not water_unit_sent and closest_factory.unit_id != last_factory_id):
-                if (unit.cargo.ice / 4) + unit.cargo.water > LIGHT_ROBOT_WATER_ICE_LIMIT \
-                    if unit.unit_type=="LIGHT" else HEAVY_ROBOT_WATER_ICE_LIMIT:
+                # minimum amount of resources for robot to directly go to endangered factory instead of farm 
+                # more resources when factory runs out of water
+                if (unit.cargo.ice / 4) + unit.cargo.water > LIGHT_ROBOT_WATER_ICE_THRESHOLD \
+                    if unit.unit_type=="LIGHT" else HEAVY_ROBOT_WATER_ICE_THRESHOLD:
                     #send unit to factory, transfer water and dont run out of power
+                    actions.update(self.navigate_to_factory(game_state,unit))
                     water_unit_sent = 1
                     last_factory_id = closest_factory.unit_id
                     pass
