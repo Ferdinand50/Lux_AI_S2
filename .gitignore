@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+Lux-Design-S2
+
+
 # C extensions
 *.so
 
