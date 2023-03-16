@@ -3,21 +3,12 @@ from lux.config import EnvConfig
 from lux.utils import direction_to, my_turn_to_place_factory
 import numpy as np
 import sys
-import logging
-
-
-
-# init logging
-logging.basicConfig(filename="Logs/agent.log", level=logging.INFO)
-
-
 class Agent():
     def __init__(self, player: str, env_cfg: EnvConfig) -> None:
         self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         np.random.seed(0)
         self.env_cfg: EnvConfig = env_cfg
-        logging.info(f"player: {self.player}")
 
     def early_setup(self, step: int, obs, remainingOverageTime: int = 60):
         if step == 0:
@@ -30,12 +21,9 @@ class Agent():
             # how much water and metal you have in your starting pool to give to new factories
             water_left = game_state.teams[self.player].water
             metal_left = game_state.teams[self.player].metal
-            logging.info(f"water_left: {water_left}")
-            logging.info(f"metal_left: {metal_left}")
 
             # how many factories you have left to place
             factories_to_place = game_state.teams[self.player].factories_to_place
-            logging.info(f"factories_to_place: {factories_to_place}")
             # whether it is your turn to place a factory
             my_turn_to_place = my_turn_to_place_factory(game_state.teams[self.player].place_first, step)
             if factories_to_place > 0 and my_turn_to_place:
@@ -105,6 +93,4 @@ class Agent():
                         move_cost = unit.move_cost(game_state, direction)
                         if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
                             actions[unit_id] = [unit.move(direction, repeat=0, n=1)]
-
-        # logging.info(f"actions: {actions}")
         return actions
