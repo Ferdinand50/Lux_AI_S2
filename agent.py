@@ -92,6 +92,28 @@ class Agent():
         pass
 
 
+    def check_resource_underneath(self,game_state,unit):
+        rubble_map = game_state.board.rubble
+        rubble_tile_locations = np.argwhere(rubble_map == 1)
+        if np.any(rubble_tile_locations == unit.pos):
+            return "rubble"
+        ice_map = game_state.board.ice
+        ice_tile_locations = np.argwhere(ice_map == 1)
+        if np.any(ice_tile_locations == unit.pos):
+            return "ice"
+        ore_map = game_state.board.ore
+        ore_tile_locations = np.argwhere(ore_map == 1)
+        if np.any(ore_tile_locations == unit.pos):
+            return "ore"
+        lichen_map = game_state.board.lichen
+        lichen_tile_locations = np.argwhere(lichen_map == 1)
+        if np.any(lichen_tile_locations == unit.pos):
+            return "lichen"
+        logging.ingo("WARNING: check_resource_underneath returned None!")
+        
+        
+
+
     def dig(self,unit):
         free_cargo = self.calculate_free_cargo(unit)
 
