@@ -1,0 +1,38 @@
+defines the strategy of our bot
+#### Factory placement ####
+
+
+
+
+
+
+
+
+
+
+#### Early game ####
+
+
+
+
+
+
+
+
+
+
+
+#### Mid game ####
+
+
+
+
+
+
+
+
+
+
+
+
+#### Late game ####
