@@ -252,6 +252,7 @@ class Agent():
 
 ############# Factory placement functions ##########################################
 
+    #returns middle point of fatory position
     def factory_placement(self, step: int, obs, remainingOverageTime: int = 60):
         if step == 0:
             # bid 0 to not waste resources bidding and declare as the default faction
@@ -278,17 +279,50 @@ class Agent():
                 no_rubble_spawns = np.array(list(zip(*np.where(obs["board"]["rubble"] == 0))))
                 ice_map = np.array(list(zip(*np.where(obs["board"]["ice"] == 1))))
 
+                #gets postions around the ice_grids
+                ice_map_array = game_state.board.ice
+                ice_tile_locations = np.argwhere(ice_map_array == 1)
+                # arr = ice_tile_locations
+                # logging.info(f"arr: {arr}")
+                # arr[:,0] += 2
+                # logging.info(f"arr_new: {arr}")
+
+                ice_tile_locations_down= np.argwhere(ice_map_array == 1)
+
+                ice_tile_locations[:,0] =+ 2
+                ice_tile_locations_up= ice_tile_locations[:,0] - 2
+                ice_tile_locations_right= ice_tile_locations[0,:] + 2
+                ice_tile_locations_left= ice_tile_locations[0,:] - 2
+
+                logging.info(f"ice_tile_locations: {ice_tile_locations}")
+                logging.info(f"ice_tile_locations_down: {ice_tile_locations_down}")
+
+
+                # ice_tile_locations_up_right = ice_tile_locations_up[0,:] +1
+                # ice_tile_locations_up_left = ice_tile_locations_up[0,:] - 1
+                # ice_tile_locations_down_right = ice_tile_locations_down[:,0] + 1
+                # ice_tile_locations_down_left = ice_tile_locations_down[:,0] - 1
+                # ice_tile_locations_right_up = ice_tile_locations_right[:,0] -1
+                # ice_tile_locations_right_down = ice_tile_locations_right[:,0] +1
+                # ice_tile_locations_left_up = ice_tile_locations_left[:,0] -1
+                # ice_tile_locations_left_down = ice_tile_locations_left[:,0] +1
+
+                #logging.info(f"ice_map_surrounding: {ice_map_surrounding}")
+                
                 # spawn location which are possible and no rubble is placed 
                 intersection = np.array([x for x in set(tuple(x) for x in potential_spawns) & set(tuple(x) for x in no_rubble_spawns)])
                 # logging.info(f"intersection: {intersection}")
 
+                #if no location with zero rubble avalible choosen random 
                 if(len(intersection)==0):
                     logging.info("there is no spawn location withoud 0 rubble")
                     spawn_loc = potential_spawns[np.random.randint(0, len(potential_spawns))]
                 else:
                     spawn_loc = intersection[np.random.randint(0, len(intersection))]
-            
+
+                logging.info(f"factory spawn location: {spawn_loc}")
                 return dict(spawn=spawn_loc, metal=150, water=150)
+            
             return dict()
 
 

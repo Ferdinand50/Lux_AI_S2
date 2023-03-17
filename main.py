@@ -46,6 +46,8 @@ def agent_fn(observation, configurations):
     return process_action(actions)
 
 if __name__ == "__main__":
+    with open('Logs/agent.log', 'w'):
+        pass
     
     def read_input():
         """
