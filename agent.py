@@ -187,7 +187,7 @@ class Agent():
         if free_cargo > 0:
             # POSSIBLE BUG: is unit.unit_id the same as for unit_id, unit in unit.items()???
             action = self.navigate_to_ice_tile(game_state,unit)
-            # if not already there, add action to queue, otherwise directly start digging
+            # if not already there, add navigation action to queue, otherwise directly start digging
             if 0 < len(action) :
                 actions[unit.unit_id] = action
             else:
