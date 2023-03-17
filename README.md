@@ -11,5 +11,6 @@ git clone https://github.com/Lux-AI-Challenge/Lux-Design-S2.git
 
 ## Run model
 ```shell
-luxai-s2 main.py Bots/V0/main.py 
+luxai-s2 main.py Bots/V0/main_V0.py -v 2 -o replay.json
+
 ```
