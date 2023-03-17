@@ -33,16 +33,16 @@ def agent_fn(observation, configurations):
     agent_prev_obs[player] = obs
     agent.step = step
 
-    logging.info(f"step: {agent.step}")
+    # logging.info(f"step: {agent.step}")
 
     if obs["real_env_steps"] < 0:
-        logging.info(f"early setup")
+        # logging.info(f"early setup")
         actions = agent.early_setup(step, obs, remainingOverageTime)
     else:
         actions = agent.act(step, obs, remainingOverageTime)
     
-    if actions != {}:
-        logging.info("Performing action")
+    # if actions != {}:
+    #     logging.info("Performing action")
     return process_action(actions)
 
 if __name__ == "__main__":
