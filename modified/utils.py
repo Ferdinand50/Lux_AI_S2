@@ -1,3 +1,8 @@
+import numpy as np
+import logging
+
+
+
 # direction_orders is a array of 4 numbers
 # first digit indicates x - direction (2 or 4) (see above)
 # second digit indicates for how long 
@@ -28,3 +33,12 @@ def navigate_from_to(src,target):
         direction_orders += [1,abs(dy)]
     
     return direction_orders
+
+
+
+#helper function for finding a good starting factory postion close to ice
+def find_absolute_ice_tile(game_state):
+    ice_map = game_state.board.ice
+    ice_tile_locations = np.argwhere(ice_map == 1)
+    logging.info(f"ice_map: {ice_map}")
+    logging.info(f"ice_tile_locations: {ice_tile_locations}")

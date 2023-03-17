@@ -2,6 +2,7 @@ from lux.kit import obs_to_game_state, GameState
 from lux.config import EnvConfig
 from lux.utils import direction_to, my_turn_to_place_factory
 from modified.utils import navigate_from_to
+import modified.utils
 import numpy as np
 import sys
 import logging
@@ -22,6 +23,10 @@ HEAVY_ROBOT_CARGO_LIMIT = 1000
 # when factory runs out of water
 LIGHT_ROBOT_WATER_ICE_THRESHOLD = 20 
 HEAVY_ROBOT_WATER_ICE_THRESHOLD = 100
+
+# factory parameters
+# ice to water 100/turn 4:1
+# ore to metal 50/turn 5:1
 
 
 class Agent():
@@ -244,7 +249,10 @@ class Agent():
         return actions
             
 
-    def early_setup(self, step: int, obs, remainingOverageTime: int = 60):
+
+############# Factory placement functions ##########################################
+
+    def factory_placement(self, step: int, obs, remainingOverageTime: int = 60):
         if step == 0:
             # bid 0 to not waste resources bidding and declare as the default faction
             return dict(faction="AlphaStrike", bid=0)
@@ -256,16 +264,42 @@ class Agent():
             water_left = game_state.teams[self.player].water
             metal_left = game_state.teams[self.player].metal
 
+
+
             # how many factories you have left to place
             factories_to_place = game_state.teams[self.player].factories_to_place
             # whether it is your turn to place a factory
             my_turn_to_place = my_turn_to_place_factory(game_state.teams[self.player].place_first, step)
             if factories_to_place > 0 and my_turn_to_place:
                 # we will spawn our factory in a random location with 150 metal and water if it is our turn to place
+                logging.info("\n")
+
                 potential_spawns = np.array(list(zip(*np.where(obs["board"]["valid_spawns_mask"] == 1))))
-                spawn_loc = potential_spawns[np.random.randint(0, len(potential_spawns))]
+                no_rubble_spawns = np.array(list(zip(*np.where(obs["board"]["rubble"] == 0))))
+                ice_map = np.array(list(zip(*np.where(obs["board"]["ice"] == 1))))
+
+                # spawn location which are possible and no rubble is placed 
+                intersection = np.array([x for x in set(tuple(x) for x in potential_spawns) & set(tuple(x) for x in no_rubble_spawns)])
+                # logging.info(f"intersection: {intersection}")
+
+                if(len(intersection)==0):
+                    logging.info("there is no spawn location withoud 0 rubble")
+                    spawn_loc = potential_spawns[np.random.randint(0, len(potential_spawns))]
+                else:
+                    spawn_loc = intersection[np.random.randint(0, len(intersection))]
+            
                 return dict(spawn=spawn_loc, metal=150, water=150)
             return dict()
+
+
+
+        
+    
+
+
+
+############# Factory placement functions ##########################################
+
 
 
     def act(self, step: int, obs, remainingOverageTime: int = 60):
