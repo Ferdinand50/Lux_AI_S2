@@ -8,7 +8,7 @@ import sys
 import logging
 
 logging.basicConfig(filename="Logs/agent.log", level=logging.INFO)
-# logging.info(f"factory distance: {factory_distances}")
+
 
 """
 CONSTANT VARIABLES
@@ -54,7 +54,7 @@ class Agent():
         lichen_tile_locations = np.argwhere(lichen_map == 1)
         if np.any(lichen_tile_locations == unit.pos):
             return "lichen"
-        logging.ingo("WARNING: check_resource_underneath() returned None!")      
+        logging.warning("WARNING: check_resource_underneath() returned None!")      
         
 
     def dig(self,game_state,unit):
@@ -144,13 +144,15 @@ class Agent():
 
     def collect_ice(self,game_state,unit):
         free_cargo = self.calculate_free_cargo(unit)
-        if free_cargo > 0:
+        logging.info(f"free_cargo: {free_cargo}")
+        if free_cargo > 900:
             # POSSIBLE BUG: is unit.unit_id the same as for unit_id, unit in unit.items()???
             on_ice_tile = self.navigate_to_ice_tile(game_state,unit)
             # if already there, start digging
             if on_ice_tile:
                 self.dig(game_state,unit)
         else:
+            logging.info(f"robot is returning to factory to deliver ice")
             # go to factory if unit.cargo is full and transfer ice if already there
             adjacent_to_factory = self.navigate_to_factory(game_state,unit)
             # if already there, transfer resources
@@ -179,22 +181,36 @@ class Agent():
 
     def factory_commands(self,unit_id,factory,game_state):    
         # build heavy robot if there are enough resources
-        if factory.power >= self.env_cfg.ROBOTS["HEAVY"].POWER_COST and \
+
+
+        # if factory.power >= self.env_cfg.ROBOTS["HEAVY"].POWER_COST and \
+        # factory.cargo.metal >= self.env_cfg.ROBOTS["HEAVY"].METAL_COST:
+
+        # only builds one robot per factory
+        if factory.power*3 >= self.env_cfg.ROBOTS["HEAVY"].POWER_COST and \
         factory.cargo.metal >= self.env_cfg.ROBOTS["HEAVY"].METAL_COST:
             self.actions[unit_id] = factory.build_heavy()
-        # prefer to build smaller robots first
-        elif factory.power >= self.env_cfg.ROBOTS["LIGHT"].POWER_COST and \
-        factory.cargo.metal >= self.env_cfg.ROBOTS["LIGHT"].METAL_COST:
-            self.actions[unit_id] = factory.build_light()
-        # water surrounding to grow lichen tiles; eventually overrides factory action?
-        elif factory.water_cost(game_state) <= factory.cargo.water / 5 - 200:
-            self.actions[unit_id] = factory.water()
+            logging.info("Try building a heavy robot")
+
+        ################      lets first test the program with only one heavy robots! ###########################
+
+        # # prefer to build smaller robots first
+        # elif factory.power >= self.env_cfg.ROBOTS["LIGHT"].POWER_COST and \
+        # factory.cargo.metal >= self.env_cfg.ROBOTS["LIGHT"].METAL_COST:
+        #     self.actions[unit_id] = factory.build_light()
+        #     logging.info("Try building a light robot")
+        # # water surrounding to grow lichen tiles; eventually overrides factory action?
+        # elif factory.water_cost(game_state) <= factory.cargo.water / 5 - 200:
+        #     self.actions[unit_id] = factory.water()
+        #     logging.info("Try watering the factory souroudings")
     
     
     def unit_commands(self,game_state):
         units = game_state.units[self.player]
         # water_unit_sent = [0] * len(self.factory_units) # do not cancel action queue of all units
         # last_factory_id = "xxxxxxxx"
+
+        # logging.error(f"self.factory_tiles: {self.factory_tiles}")
 
         for unit_id, unit in units.items():
 
@@ -209,17 +225,22 @@ class Agent():
             if closest_factory.cargo.water < FACTORY_WATER_LIMIT and closest_factory.cargo.ice < FACTORY_ICE_LIMIT:
                 #and (not water_unit_sent and closest_factory.unit_id != last_factory_id):
                     self.collect_ice(game_state,unit)
+                    logging.warning(f"send robot to collect ice since factory is thirsty")
                     # last_factory_id = closest_factory.unit_id
             else:
                 # Since it is less efficient...do we really need to update the action queue? 
-                logging.info(f"unit action queue: {unit.action_queue}")
+                # logging.info(f"unit action queue: {unit.action_queue}")
                 if len(unit.action_queue) == 0:
+                    ########### robot shoud first all focus on getting ice #######################
                         # send 50% of the roboters ice farming, other 50% ore farming
-                    logging.info(f"Unit_id: {int(unit_id[-1]) % 2}")
-                    if int(unit_id[-1]) % 2 == 0:
-                        self.collect_ore(game_state,unit)
-                    else:
-                        self.collect_ice(game_state,unit)
+                    # logging.info(f"Unit_id: {int(unit_id[-1]) % 2}")
+
+                    # if int(unit_id[-1]) % 2 == 0:
+                    #     self.collect_ore(game_state,unit)
+                    #     logging.error(f"send robot to collect ore")
+                    # else:
+                    self.collect_ice(game_state,unit)
+                    logging.info(f"send robot to collect ice")
             
 
 
@@ -244,7 +265,6 @@ class Agent():
             my_turn_to_place = my_turn_to_place_factory(game_state.teams[self.player].place_first, step)
             if factories_to_place > 0 and my_turn_to_place:
                 # we will spawn our factory in a random location with 150 metal and water if it is our turn to place
-                logging.info("\n")
 
                 potential_spawns = np.array(list(zip(*np.where(obs["board"]["valid_spawns_mask"] == 1))))
                 no_rubble_spawns = np.array(list(zip(*np.where(obs["board"]["rubble"] == 0))))
@@ -263,6 +283,7 @@ class Agent():
                 #  F*I*F
                 #  *****
                 #  **F**
+
                 ice_tile_locations_right[:, 0] = ice_tile_locations_right[:, 0] + 2
                 ice_tile_locations_left[:, 0]= ice_tile_locations_left[:,0] - 2
                 ice_tile_locations_up[:, 1] = ice_tile_locations_up[:, 1] - 2
@@ -279,13 +300,12 @@ class Agent():
 
                 #if no location with zero rubble avalible choosen random 
                 if(len(best_ice_no_rubble_locations)==0):
-                    logging.info("there is no spawn location close to ice and withoud 0 rubble")
+                    logging.info("there is no spawn location close to ice and without 0 rubble")
                     if(len(best_ice_locations)==0):
-                        logging.info("[WARNING] there is no spawn location close to ice. Therefore random factory location")
+                        logging.warning("[WARNING] there is no spawn location close to ice. Therefore random factory location")
                         spawn_loc = potential_spawns[np.random.randint(0, len(potential_spawns))]
                     else:
                         spawn_loc = best_ice_locations[np.random.randint(0, len(best_ice_locations))]
-
                 else:
                     logging.info("Best factory location is choosen")
                     spawn_loc = best_ice_no_rubble_locations[np.random.randint(0, len(best_ice_no_rubble_locations))]

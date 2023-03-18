@@ -35,6 +35,7 @@ def agent_fn(observation, configurations):
     agent.step = step
 
     # logging.info(f"step: {agent.step}")
+    logging.info("\n")
 
     if obs["real_env_steps"] < 0:
         actions = agent.factory_placement(step, obs, remainingOverageTime)
