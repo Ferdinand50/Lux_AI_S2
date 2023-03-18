@@ -35,10 +35,19 @@ def navigate_from_to(src,target):
     return direction_orders
 
 
-
 #helper function for finding a good starting factory postion close to ice
 def find_absolute_ice_tile(game_state):
     ice_map = game_state.board.ice
     ice_tile_locations = np.argwhere(ice_map == 1)
     logging.info(f"ice_map: {ice_map}")
     logging.info(f"ice_tile_locations: {ice_tile_locations}")
+
+
+# helper function for not overwriting existing action queue of a robot
+def update_action_queue(queue,key,action):
+    if key in queue.keys():
+        queue[key].append(action)
+    else:
+        queue[key] = [action]
+    return queue
+         
