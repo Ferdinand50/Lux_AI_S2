@@ -34,43 +34,7 @@ class Agent():
         self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         np.random.seed(0)
-        self.env_cfg: EnvConfig = env_cfg
-
-    # def send_unit_to_dig_ice(self,unit,unit_id,game_state,closest_factory_tile,adjacent_to_factory):
-    #     actions = dict()
-    #     ice_map = game_state.board.ice
-    #     ice_tile_locations = np.argwhere(ice_map == 1)
-
-    #     if unit.cargo.ice < 40:
-    #         ice_tile_distances = np.mean((ice_tile_locations - unit.pos) ** 2, 1)
-    #         closest_ice_tile = ice_tile_locations[np.argmin(ice_tile_distances)]
-    #         if np.all(closest_ice_tile == unit.pos):
-    #             if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state):
-    #                 actions[unit_id] = [unit.dig(repeat=0, n=1)]
-    #         else:
-    #             direction = direction_to(unit.pos, closest_ice_tile)
-    #             move_cost = unit.move_cost(game_state, direction)
-    #             if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
-    #                 actions[unit_id] = [unit.move(direction, repeat=0, n=1)]
-    #     # else if we have enough ice, we go back to the factory and dump it.
-    #     elif unit.cargo.ice >= 40:
-    #         direction = direction_to(unit.pos, closest_factory_tile)
-    #         if adjacent_to_factory:
-    #             if unit.power >= unit.action_queue_cost(game_state):
-    #                 actions[unit_id] = [unit.transfer(direction, 0, unit.cargo.ice, repeat=0)]
-    #         else:
-    #             move_cost = unit.move_cost(game_state, direction)
-    #             if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
-    #                 actions[unit_id] = [unit.move(direction, repeat=0, n=1)]
-    #     return actions
-    
-        
-    # def evaluate_surrounding_resource_availability(self,game_state,factory):
-    #     ice_map = game_state.board.ice
-    #     ice_tile_locations = np.argwhere(ice_map == 1)
-    #     ore_map = game_state.board.ore
-    #     ore_tile_locations = np.argwhere(ore_map == 1)
-    #     pass
+        self.env_cfg: EnvConfig = env_cfg    
 
 
     def check_resource_underneath(self,game_state,unit):
