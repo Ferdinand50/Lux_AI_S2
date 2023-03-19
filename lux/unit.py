@@ -50,6 +50,7 @@ class Unit:
             pass
         return np.array([0, direction, 0, 0, repeat, n])
 
+    # transfer_resource: (0 = ice, 1 = ore, 2 = water, 3 = metal, 4 power)
     def transfer(self, transfer_direction, transfer_resource, transfer_amount, repeat=0, n=1):
         assert transfer_resource < 5 and transfer_resource >= 0
         assert transfer_direction < 5 and transfer_direction >= 0

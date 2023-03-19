@@ -3,7 +3,6 @@ from typing import Dict
 import sys
 from argparse import Namespace
 
-
 from agent import Agent
 from lux.config import EnvConfig
 from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
@@ -35,7 +34,7 @@ def agent_fn(observation, configurations):
     agent.step = step
 
     # logging.info(f"step: {agent.step}")
-    logging.info("\n")
+    # logging.info("\n")
 
     if obs["real_env_steps"] < 0:
         actions = agent.factory_placement(step, obs, remainingOverageTime)
