@@ -5,7 +5,6 @@ current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 
-from typing import List
 from lux.factory import Factory
 from .robot import RobotM
 from . import globals

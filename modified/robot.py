@@ -9,7 +9,7 @@ from lux.unit import Unit
 from lux.utils import direction_to
 from .utils import navigate_from_to, update_action_queue, \
     locate_closest_factory, locate_closest_ice_tile, locate_closest_ore_tile, \
-    locate_closest_resource, adjacent_to, get_action_queue_head, get_unit_live_actions
+    locate_closest_resource, adjacent_to, get_action_queue_head, get_units_next_action
 from . import globals
 import logging
 
@@ -31,10 +31,10 @@ class RobotM(Unit):
         direction_orders = navigate_from_to(self.pos,target_pos)
         if direction_orders[0] != 0:
             action = self.move(direction_orders[0],repeat=0,n=direction_orders[1])
-            update_action_queue(self.unit_id,action)
+            update_action_queue(self,action)
         if direction_orders[2] != 0:
             action = self.move(direction_orders[2],repeat=0,n=direction_orders[3])
-            update_action_queue(self.unit_id,action)    
+            update_action_queue(self,action)    
     
 
     def navigate_to_factory(self,game_state):
@@ -74,35 +74,32 @@ class RobotM(Unit):
     #     if unit.unit_type == "HEAVY":
     #         removing_factor *= 10
     #     t = free_cargo // removing_factor
-    #     update_action_queue(unit.unit_id,unit.dig(repeat=0,n=t))
+    #     update_action_queue(unit,unit.dig(repeat=0,n=t))
 
     def support_digging_robot(self,digging_robot):
         
         # try to get the next action digging_robot is executing
-        try:            
-            digging_robot_action = globals.actions[digging_robot.unit_id][0][0]
-        except KeyError as e:
-            digging_robot_action = -1
+        digging_robot_action = get_units_next_action(digging_robot.unit_id)
         # if unit is next to the digging robot and the digging robot is actually digging
         if adjacent_to(self.pos,digging_robot.pos) and digging_robot_action == 3:
              # transfer power to digging robot
             if self.power - KEEP_MIN_POWER >= self.action_queue_cost():
                 direction = direction_to(self.pos,digging_robot.pos)
                 action = super().transfer(direction,4,self.power - KEEP_MIN_POWER, repeat=1)
-                update_action_queue(self.unit_id,action)
+                update_action_queue(self,action)
 
             # transfer resources to supporting robot
             if digging_robot.power >= self.action_queue_cost():
                 direction = direction_to(digging_robot.pos,self.pos)                
                 action = super().transfer(direction,0,self.calculate_free_cargo(),repeat=1)
-                update_action_queue(digging_robot.unit_id,action)
+                update_action_queue(digging_robot,action)
 
             closest_factory_tile = locate_closest_factory(self.pos)[1]
             if adjacent_to(self.pos,closest_factory_tile):
                 if self.power >= self.action_queue_cost():
                     direction = direction_to(self.pos,closest_factory_tile)
                     action = super().transfer(direction,0,self.cargo.ice,repeat=1)
-                    update_action_queue(self.unit_id,action)
+                    update_action_queue(self,action)
                     action = super().pickup(4,POWER_PICK_UP_AMOUNT,repeat=1)
 
 
@@ -110,8 +107,7 @@ class RobotM(Unit):
         # navigate to digging robot
         # FOR FUTURE: UNIT COLLISION (has heavy enough power to move next turn) 
         else:
-            if get_action_queue_head(digging_robot) != 0:
-                self.navigate_to_coordinate(digging_robot.pos)
+            self.navigate_to_coordinate(digging_robot.pos)
 
         
         
@@ -120,9 +116,8 @@ class RobotM(Unit):
             [closest_resource_tile, on_resource_tile] = locate_closest_resource(self.pos,"ice")
             if on_resource_tile:
                 # start digging
-                if self.power >= self.action_queue_cost():
-                    
-                    update_action_queue(self.unit_id,super().dig(repeat=1,n=5))                    
+                if self.power >= self.action_queue_cost():                    
+                    update_action_queue(self,super().dig(repeat=1,n=5))                    
             else:
                 # navigate towards resource tile
                 self.navigate_to_coordinate(closest_resource_tile)
@@ -146,7 +141,7 @@ class RobotM(Unit):
     #         # if already there, transfer resources
     #         if adjacent_to_factory:
     #             if self.power >= self.action_queue_cost(game_state):
-    #                 update_action_queue(self.unit_id,self.transfer(0,0,self.cargo.ice,repeat=0))
+    #                 update_action_queue(self,self.transfer(0,0,self.cargo.ice,repeat=0))
 
     def collect_ice(self,game_state):
             on_ice_tile = self.navigate_to_ice_tile(game_state)

@@ -42,12 +42,28 @@ def find_absolute_ice_tile(game_state):
     # logging.info(f"ice_tile_locations: {ice_tile_locations}")
 
 
+# # helper function for not overwriting existing action queue of a robot
+# def update_action_queue(key,action):
+#     if key in globals.actions.keys():
+#         globals.actions[key].append(action)
+#     else:
+#         globals.actions[key] = [action]
+
+
 # helper function for not overwriting existing action queue of a robot
-def update_action_queue(key,action):
-    if key in globals.actions.keys():
-        globals.actions[key].append(action)
-    else:
-        globals.actions[key] = [action]
+def update_action_queue(unit,action):
+    if len(unit.action_queue) != 0:
+        logging.warning("UNIT ACTION QUEUE[0], CHECK IF IT IS THE WHOLE ACTION")
+        logging.warning(unit.action_queue[0,:3] == action[:3])
+
+    # case: at least one task was already assigned to this unit in this step
+    if unit.unit_id in globals.actions.keys():
+        globals.actions[unit.unit_id].append(action)
+    # case: no task was assigned to this unit in this step
+    # check if the factory wants to add the same action like last period
+    elif len(unit.action_queue) == 0 or \
+        (len(unit.action_queue) != 0 and np.all(unit.action_queue[0,:4] == action[:4])):
+        globals.actions[unit.unit_id] = [action]        
 
 
 # @brief: return true if pos_1 is touching pos_2 else false
@@ -62,8 +78,11 @@ def get_action_queue_head(unit):
     return action
 
 
-def get_unit_live_actions(unit_id):
-    action = globals.actions[unit_id][0][0]
+def get_units_next_action(unit_id):
+    try:
+        action = globals.actions[unit_id][0][0]
+    except KeyError:
+        action = -1
     return action
 
 
