@@ -154,7 +154,10 @@ class Agent():
             # ================================================================================================
             for unit_id, factory in factories.items():
                 factory.command_units(self.env_cfg)
+
             
+            logging.info(f"STEP: {step}")
+            logging.info(f"actions submitted: {globals.actions}")
             return globals.actions    
         else:
             return {}

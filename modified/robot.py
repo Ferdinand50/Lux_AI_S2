@@ -13,7 +13,7 @@ from .utils import navigate_from_to, update_action_queue, \
 from . import globals
 import logging
 
-POWER_PICK_UP_AMOUNT = 50
+POWER_PICK_UP_AMOUNT = 85
 KEEP_MIN_POWER = 10
 
 class RobotM(Unit):
@@ -79,14 +79,24 @@ class RobotM(Unit):
     def support_digging_robot(self,digging_robot):
         
         # try to get the next action digging_robot is executing
-        digging_robot_action = get_units_next_action(digging_robot.unit_id)
-        # if unit is next to the digging robot and the digging robot is actually digging
-        if adjacent_to(self.pos,digging_robot.pos) and digging_robot_action == 3:
+        digging_robot_action = get_units_next_action(digging_robot)
+        # if unit is next to the digging robot and the digging robot is standing still
+        if adjacent_to(self.pos,digging_robot.pos) and digging_robot_action != 0:
              # transfer power to digging robot
             if self.power - KEEP_MIN_POWER >= self.action_queue_cost():
                 direction = direction_to(self.pos,digging_robot.pos)
                 action = super().transfer(direction,4,self.power - KEEP_MIN_POWER, repeat=1)
                 update_action_queue(self,action)
+
+            #transfer resources to factory and pickup power
+            closest_factory_tile = locate_closest_factory(self.pos)[1]
+            if adjacent_to(self.pos,closest_factory_tile):
+                if self.power >= self.action_queue_cost():
+                    action = super().pickup(4,POWER_PICK_UP_AMOUNT,repeat=1)
+                    update_action_queue(self,action)
+                    direction = direction_to(self.pos,closest_factory_tile)
+                    action = super().transfer(direction,0,self.cargo.ice,repeat=1)
+                    update_action_queue(self,action)
 
             # transfer resources to supporting robot
             if digging_robot.power >= self.action_queue_cost():
@@ -94,13 +104,8 @@ class RobotM(Unit):
                 action = super().transfer(direction,0,self.calculate_free_cargo(),repeat=1)
                 update_action_queue(digging_robot,action)
 
-            closest_factory_tile = locate_closest_factory(self.pos)[1]
-            if adjacent_to(self.pos,closest_factory_tile):
-                if self.power >= self.action_queue_cost():
-                    direction = direction_to(self.pos,closest_factory_tile)
-                    action = super().transfer(direction,0,self.cargo.ice,repeat=1)
-                    update_action_queue(self,action)
-                    action = super().pickup(4,POWER_PICK_UP_AMOUNT,repeat=1)
+            
+                    
 
 
 
@@ -116,8 +121,16 @@ class RobotM(Unit):
             [closest_resource_tile, on_resource_tile] = locate_closest_resource(self.pos,"ice")
             if on_resource_tile:
                 # start digging
-                if self.power >= self.action_queue_cost():                    
-                    update_action_queue(self,super().dig(repeat=1,n=5))                    
+                if self.power >= self.action_queue_cost():      
+                    # add digging action 5 times, because even repeat = 1 will repeat the action of 
+                    # finishing it, but will reset n to 1, which is inefficient, since the roboter should 
+                    # transfer at least the max cargo space of a supporting (light) robot or even more if 
+                    # it (digging heavy robot) stands next to the factory               
+                    update_action_queue(self,super().dig(repeat=1,n=1))                    
+                    update_action_queue(self,super().dig(repeat=1,n=1))                    
+                    update_action_queue(self,super().dig(repeat=1,n=1))                    
+                    update_action_queue(self,super().dig(repeat=1,n=1))                    
+                    update_action_queue(self,super().dig(repeat=1,n=1))                    
             else:
                 # navigate towards resource tile
                 self.navigate_to_coordinate(closest_resource_tile)
