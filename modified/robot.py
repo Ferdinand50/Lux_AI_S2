@@ -9,12 +9,13 @@ from lux.unit import Unit
 from lux.utils import direction_to
 from .utils import navigate_from_to, update_action_queue, \
     locate_closest_factory, locate_closest_ice_tile, locate_closest_ore_tile, \
-    locate_closest_resource, adjacent_to, get_action_queue_head, get_units_next_action
+    locate_closest_resource, adjacent_to, get_action_queue_head, get_units_next_action, \
+    locate_closest_rubble_tiles_under_20
 from . import globals
 import logging
 
-POWER_PICK_UP_AMOUNT = 85
-KEEP_MIN_POWER = 10
+POWER_PICK_UP_AMOUNT = 125
+TRANSFER_POWER_AMOUNT = 131
 
 class RobotM(Unit):
 
@@ -67,14 +68,6 @@ class RobotM(Unit):
         # always transfer all resources to factory
         pass
 
-    # def dig(self,game_state,unit):
-    #     free_cargo = self.calculate_free_cargo(unit)
-    #     removing_factor = 2 if (self.check_resource_underneath(game_state,unit) \
-    #     == ("ice" or "ore" or "rubble")) else 10
-    #     if unit.unit_type == "HEAVY":
-    #         removing_factor *= 10
-    #     t = free_cargo // removing_factor
-    #     update_action_queue(unit,unit.dig(repeat=0,n=t))
 
     def support_digging_robot(self,digging_robot):
         
@@ -83,9 +76,9 @@ class RobotM(Unit):
         # if unit is next to the digging robot and the digging robot is standing still
         if adjacent_to(self.pos,digging_robot.pos) and digging_robot_action != 0:
              # transfer power to digging robot
-            if self.power - KEEP_MIN_POWER >= self.action_queue_cost():
+            if self.power >= self.action_queue_cost():
                 direction = direction_to(self.pos,digging_robot.pos)
-                action = super().transfer(direction,4,self.power - KEEP_MIN_POWER, repeat=1)
+                action = super().transfer(direction,4,TRANSFER_POWER_AMOUNT, repeat=1)
                 update_action_queue(self,action)
 
             #transfer resources to factory and pickup power
@@ -104,10 +97,6 @@ class RobotM(Unit):
                 action = super().transfer(direction,0,self.calculate_free_cargo(),repeat=1)
                 update_action_queue(digging_robot,action)
 
-            
-                    
-
-
 
         # navigate to digging robot
         # FOR FUTURE: UNIT COLLISION (has heavy enough power to move next turn) 
@@ -118,22 +107,26 @@ class RobotM(Unit):
         
 
     def dig_nonstop(self):
-            [closest_resource_tile, on_resource_tile] = locate_closest_resource(self.pos,"ice")
-            if on_resource_tile:
-                # start digging
-                if self.power >= self.action_queue_cost():      
-                    # add digging action 5 times, because even repeat = 1 will repeat the action of 
-                    # finishing it, but will reset n to 1, which is inefficient, since the roboter should 
-                    # transfer at least the max cargo space of a supporting (light) robot or even more if 
-                    # it (digging heavy robot) stands next to the factory               
-                    update_action_queue(self,super().dig(repeat=1,n=1))                    
-                    update_action_queue(self,super().dig(repeat=1,n=1))                    
-                    update_action_queue(self,super().dig(repeat=1,n=1))                    
-                    update_action_queue(self,super().dig(repeat=1,n=1))                    
-                    update_action_queue(self,super().dig(repeat=1,n=1))                    
-            else:
-                # navigate towards resource tile
-                self.navigate_to_coordinate(closest_resource_tile)
+        [closest_resource_tile, on_resource_tile] = locate_closest_resource(self.pos,"ice")
+        if on_resource_tile:
+            # start digging 
+            if self.power >= self.action_queue_cost():      
+                # add digging action 5 times, because even repeat = 1 will repeat the action of 
+                # finishing it, but will reset n to 1, which is inefficient, since the roboter should 
+                # transfer at least the max cargo space of a supporting (light) robot or even more if 
+                # it (digging heavy robot) stands next to the factory               
+                update_action_queue(self,super().dig(repeat=1,n=1))                    
+                update_action_queue(self,super().dig(repeat=1,n=1))                    
+                update_action_queue(self,super().dig(repeat=1,n=1))                    
+                update_action_queue(self,super().dig(repeat=1,n=1))                    
+                update_action_queue(self,super().dig(repeat=1,n=1))                    
+        else:
+            # navigate towards resource tile
+            self.navigate_to_coordinate(closest_resource_tile)
+
+
+    def remove_surrounding_rubble(self):
+        pass
 
     
 

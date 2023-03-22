@@ -68,7 +68,7 @@ def find_absolute_ice_tile(game_state):
 
 # helper function for not overwriting existing action queue of a robot
 def update_action_queue(unit,action,overwrite=False):
-    if len(unit.action_queue) == 0 or overwrite==True: 
+    if len(unit.action_queue) == 0 or unit.unit_id in globals.actions or overwrite==True: 
         if unit.unit_id in globals.actions.keys():
             globals.actions[unit.unit_id].append(action)
         else:
@@ -104,6 +104,25 @@ def get_units_next_action(unit):
         else:
             action_id = -1
     return action_id
+
+
+def locate_closest_rubble_tiles_under_20(pos):
+    closest_rubble_tills = None
+    on_rubble_tile = False
+    rubble_map = globals.game_state.board.rubble
+    
+    rubble_tiles_locations = np.argwhere((0 < rubble_map) & (rubble_map < 20))
+    # logging.info(rubble_tiles_locations)
+    rubble_tiles_distances = np.mean((rubble_tiles_locations - pos) ** 2,1)
+    # logging.info(rubble_tiles_distances)
+    closest_rubble_tiles = rubble_tiles_locations[np.argsort(rubble_tiles_distances)]
+    # closest_rubble_tiles = np.sort(rubble_tiles_distances)
+    # logging.info(closest_rubble_tiles)
+    on_rubble_tile = np.any(np.all(closest_rubble_tiles == pos,axis=1))
+    # logging.info(on_rubble_tile)
+    # logging.info("hier")
+    logging.info(np.any(np.all(closest_rubble_tiles == pos,axis=1)))
+    return [closest_rubble_tiles, on_rubble_tile]
 
 
 def locate_closest_factory(pos):

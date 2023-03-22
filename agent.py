@@ -115,52 +115,58 @@ class Agent():
 
 
     def act(self, step: int, obs, remainingOverageTime: int = 60):
-        # if self.player == "player_1":
-        game_state = obs_to_game_state(step, self.env_cfg, obs)
-        globals.init(game_state)
-        
-        
-        """
-        optionally do forward simulation to simulate positions of units, lichen, etc. in the future
-        from lux.forward_sim import forward_sim
-        forward_obs = forward_sim(obs, self.env_cfg, n=2)
-        forward_game_states = [obs_to_game_state(step + i, self.env_cfg, f_obs) for i, f_obs in enumerate(forward_obs)]
-        """
+        if self.player == "player_0":
+            game_state = obs_to_game_state(step, self.env_cfg, obs)
+            globals.init(game_state)
+            
+            
+            """
+            optionally do forward simulation to simulate positions of units, lichen, etc. in the future
+            from lux.forward_sim import forward_sim
+            forward_obs = forward_sim(obs, self.env_cfg, n=2)
+            forward_game_states = [obs_to_game_state(step + i, self.env_cfg, f_obs) for i, f_obs in enumerate(forward_obs)]
+            """
 
-        factories = game_state.factories[self.player]
-        game_state.teams[self.player].place_first #what's the purpose of this line? 
-        # ================================================================================================
-        # create existing factories and cast them to the derives class FactoryM
-        #
-        # additional tasks: 
-        #   - build units
-        # ================================================================================================
-        for unit_id, factory in factories.items():
-            factory.__class__ = FactoryM
-            factory.robots = []
-            globals.factory_tiles += [factory.pos]
-            globals.factory_units += [factory]
-            factory.build_units(self.env_cfg)
-        globals.factory_tiles = np.array(globals.factory_tiles)
-        # ================================================================================================
-        # bind units to closest factory and cast them to the derived class RobotM
-        # ================================================================================================
-        units = game_state.units[self.player]            
-        for unit_id, unit in units.items():                
-            unit.__class__ = RobotM
-            unit.bind_to_closest_factory()        
-        # ================================================================================================
-        # each factory sends commands to their surrounding robots
-        # ================================================================================================
-        for unit_id, factory in factories.items():
-            factory.command_units(self.env_cfg)
+            factories = game_state.factories[self.player]
+            game_state.teams[self.player].place_first #what's the purpose of this line? 
+            # ================================================================================================
+            # create existing factories and cast them to the derives class FactoryM
+            #
+            # additional tasks: 
+            #   - build units
+            #   - water surrounding
+            # ================================================================================================
+            for unit_id, factory in factories.items():
+                # add factory tiles and units to a global variable for better handling
+                factory.__class__ = FactoryM
+                factory.robots = []
+                globals.factory_tiles += [factory.pos]
+                globals.factory_units += [factory]
 
-        
-        logging.info(f"STEP: {step}")
-        logging.info(f"actions submitted: {globals.actions}")
-        return globals.actions    
-        # else:
-        #     return {}
+                # STRATEGY: decide what factory should do depending on the past game steps
+                if obs["real_env_steps"] < 5:
+                    factory.build_units(self.env_cfg)
+                else:
+                    factory.water(obs,self.env_cfg)
+            globals.factory_tiles = np.array(globals.factory_tiles)
+            # ================================================================================================
+            # bind units to closest factory and cast them to the derived class RobotM
+            # ================================================================================================
+            units = game_state.units[self.player]            
+            for unit_id, unit in units.items():                
+                unit.__class__ = RobotM
+                unit.bind_to_closest_factory()        
+            # ================================================================================================
+            # each factory sends commands to their surrounding robots
+            # ================================================================================================
+            for unit_id, factory in factories.items():
+                factory.command_units(self.env_cfg)
+
+            # logging.info(obs["real_env_steps"])
+            # logging.info(f"actions submitted: {globals.actions}")
+            return globals.actions    
+        else:
+            return {}
 
 # ================================================================================================
 # END: master(agent) logic
@@ -169,10 +175,6 @@ class Agent():
 
 
 
-
-    
-        
-        
 
 def factory_commands(self,unit_id,factory,game_state):    
     # build heavy robot if there are enough resources
