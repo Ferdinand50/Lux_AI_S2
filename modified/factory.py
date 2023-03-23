@@ -19,10 +19,12 @@ class FactoryM(Factory):
         # only builds one robot per factory
         if self.power*10 >= env_cfg.ROBOTS["HEAVY"].POWER_COST and \
         self.cargo.metal >= env_cfg.ROBOTS["HEAVY"].METAL_COST:
+            logging.info(f"Building heavy robot")
             globals.actions[self.unit_id] = self.build_heavy()
         elif self.power*5 >= env_cfg.ROBOTS["LIGHT"].POWER_COST and \
         self.cargo.metal >= env_cfg.ROBOTS["LIGHT"].METAL_COST:
             globals.actions[self.unit_id] = self.build_light()
+            logging.info(f"Building light robot")
 
     
     def water(self,obs,env_cfg):
@@ -44,7 +46,7 @@ class FactoryM(Factory):
             else:
                 closest_rubble_tiles = locate_closest_rubble_tiles_under_20(self.pos)[0]
                 on_rubble_tile = locate_closest_rubble_tiles_under_20(self.robots[i].pos)[1]
-                logging.warning(on_rubble_tile)
+                # logging.warning(on_rubble_tile)
                 if on_rubble_tile:
                     update_action_queue(self.robots[i],self.robots[i].dig(repeat=1,n=1))
                 else:

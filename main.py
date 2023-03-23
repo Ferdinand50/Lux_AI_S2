@@ -6,7 +6,7 @@ from argparse import Namespace
 from agent import Agent
 from lux.config import EnvConfig
 from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
-import logging
+
 
 
 
@@ -33,16 +33,14 @@ def agent_fn(observation, configurations):
     agent_prev_obs[player] = obs
     agent.step = step
 
-    # logging.info(f"step: {agent.step}")
-    # logging.info("\n")
+
 
     if obs["real_env_steps"] < 0:
         actions = agent.factory_placement(step, obs, remainingOverageTime)
     else:
         actions = agent.act(step, obs, remainingOverageTime)
     
-    # if actions != {}:
-    #     logging.info("Performing action")
+
     return process_action(actions)
 
 if __name__ == "__main__":

@@ -121,7 +121,7 @@ def locate_closest_rubble_tiles_under_20(pos):
     on_rubble_tile = np.any(np.all(closest_rubble_tiles == pos,axis=1))
     # logging.info(on_rubble_tile)
     # logging.info("hier")
-    logging.info(np.any(np.all(closest_rubble_tiles == pos,axis=1)))
+    # logging.info(np.any(np.all(closest_rubble_tiles == pos,axis=1)))
     return [closest_rubble_tiles, on_rubble_tile]
 
 
@@ -187,4 +187,4 @@ def check_resource_underneath(self,game_state,pos):
         lichen_tile_locations = np.argwhere(lichen_map == 1)
         if np.any(lichen_tile_locations == pos):
             return "lichen"
-        logging.warning("WARNING: check_resource_underneath() returned None!")      
+        # logging.warning("WARNING: check_resource_underneath() returned None!")      
