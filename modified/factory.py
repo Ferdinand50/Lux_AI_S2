@@ -19,17 +19,20 @@ class FactoryM(Factory):
         # only builds one robot per factory
         if self.power*10 >= env_cfg.ROBOTS["HEAVY"].POWER_COST and \
         self.cargo.metal >= env_cfg.ROBOTS["HEAVY"].METAL_COST:
-            logging.info(f"Building heavy robot")
+            # logging.info(f"Building heavy robot")
             globals.actions[self.unit_id] = self.build_heavy()
         elif self.power*5 >= env_cfg.ROBOTS["LIGHT"].POWER_COST and \
         self.cargo.metal >= env_cfg.ROBOTS["LIGHT"].METAL_COST:
             globals.actions[self.unit_id] = self.build_light()
-            logging.info(f"Building light robot")
+            # logging.info(f"Building light robot")
 
     
     def water(self,obs,env_cfg):
         # if self.water_cost(globals.game_state) <= self.cargo.water -(150-obs["real_env_steps"]):
-        globals.actions[self.unit_id] = super().water()
+        
+        if self.cargo.water >50:
+            globals.actions[self.unit_id] = super().water()
+
         
 
 

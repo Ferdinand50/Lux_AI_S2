@@ -144,7 +144,6 @@ class Agent():
             globals.factory_units += [factory]
 
             # STRATEGY: decide what factory should do depending on the past game steps
-            logging.warning(obs["real_env_steps"])
             if obs["real_env_steps"] < 5:
                 factory.build_units(self.env_cfg)
             else:
