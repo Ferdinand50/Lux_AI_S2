@@ -13,7 +13,7 @@ import logging
 
 class FactoryM(Factory):
     robots: list
-
+#
     def __init__(self):
         logging.info("Factory init")
 
@@ -23,6 +23,7 @@ class FactoryM(Factory):
         self.cargo.metal >= env_cfg.ROBOTS["HEAVY"].METAL_COST:
             # logging.info(f"Building heavy robot")
             globals.actions[self.unit_id] = self.build_heavy()
+            logging.info(f" actions {globals.actions[self.unit_id] }")
             robot = RobotM("HEAVY",self.unit_id)
             
         elif self.power*5 >= env_cfg.ROBOTS["LIGHT"].POWER_COST and \
@@ -51,16 +52,16 @@ class FactoryM(Factory):
             elif i == 1:
                 self.robots[i].support_digging_robot(self.robots[0])
             # remove rubble around the factory
-            else:
-                closest_rubble_tiles = locate_closest_rubble_tiles_under_20(self.pos)[0]
-                on_rubble_tile = locate_closest_rubble_tiles_under_20(self.robots[i].pos)[1]
-                # logging.warning(on_rubble_tile)
-                if on_rubble_tile:
-                    update_action_queue(self.robots[i],self.robots[i].dig(repeat=1,n=1))
-                else:
-                    coord = closest_rubble_tiles[i]
-                    self.robots[i].navigate_to_coordinate(coord)
-                    update_action_queue(self.robots[i],self.robots[i].dig(repeat=1,n=1))
+            # else:
+            #     closest_rubble_tiles = locate_closest_rubble_tiles_under_20(self.pos)[0]
+            #     on_rubble_tile = locate_closest_rubble_tiles_under_20(self.robots[i].pos)[1]
+            #     # logging.warning(on_rubble_tile)
+            #     if on_rubble_tile:
+            #         update_action_queue(self.robots[i],self.robots[i].dig(repeat=1,n=1))
+            #     else:
+            #         coord = closest_rubble_tiles[i]
+            #         self.robots[i].navigate_to_coordinate(coord)
+            #         update_action_queue(self.robots[i],self.robots[i].dig(repeat=1,n=1))
 
             # logging.info(f"digging robot {self.robots[0].unit_id} action queue: {self.robots[0].action_queue}")
 

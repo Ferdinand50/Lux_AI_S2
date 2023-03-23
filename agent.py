@@ -153,9 +153,11 @@ class Agent():
         # bind units to closest factory and cast them to the derived class RobotM
         # ================================================================================================
         units = game_state.units[self.player]            
-        for unit_id, unit in units.items():                
+        for unit_id, unit in units.items():
+            logging.info(f"unit_id: {unit_id}")                
             unit.__class__ = RobotM
-            unit.bind_to_closest_factory()        
+            unit.bind_to_closest_factory()
+            logging.info(f"unit2: {unit}")          
         # ================================================================================================
         # each factory sends commands to their surrounding robots
         # ================================================================================================

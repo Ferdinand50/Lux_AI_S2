@@ -6,7 +6,7 @@ from argparse import Namespace
 from agent import Agent
 from lux.config import EnvConfig
 from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
-
+import logging
 
 
 
@@ -39,6 +39,7 @@ def agent_fn(observation, configurations):
         actions = agent.factory_placement(step, obs, remainingOverageTime)
     else:
         actions = agent.act(step, obs, remainingOverageTime)
+        logging.info(f" actions {actions }")
     
 
     return process_action(actions)
