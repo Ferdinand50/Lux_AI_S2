@@ -14,6 +14,8 @@ import logging
 class FactoryM(Factory):
     robots: list
 
+    def __init__(self):
+        logging.info("Factory init")
 
     def build_units(self,env_cfg):
         # only builds one robot per factory
@@ -21,10 +23,13 @@ class FactoryM(Factory):
         self.cargo.metal >= env_cfg.ROBOTS["HEAVY"].METAL_COST:
             # logging.info(f"Building heavy robot")
             globals.actions[self.unit_id] = self.build_heavy()
+            robot = RobotM("HEAVY",self.unit_id)
+            
         elif self.power*5 >= env_cfg.ROBOTS["LIGHT"].POWER_COST and \
         self.cargo.metal >= env_cfg.ROBOTS["LIGHT"].METAL_COST:
             globals.actions[self.unit_id] = self.build_light()
             # logging.info(f"Building light robot")
+            robot = RobotM("LIGHT",self.unit_id)
 
     
     def water(self,obs,env_cfg):

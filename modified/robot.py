@@ -18,6 +18,11 @@ POWER_PICK_UP_AMOUNT = 125
 TRANSFER_POWER_AMOUNT = 131
 
 class RobotM(Unit):
+    def __init__(self, type, home_factory):
+        self._robot_job = "eco"
+        self._type = type
+        self._home_factory = home_factory
+        logging.info(f"robot initialized {self._type, self._robot_job,self._home_factory}")
 
     def action_queue_cost(self):
         cost = self.env_cfg.ROBOTS[self.unit_type].ACTION_QUEUE_POWER_COST
