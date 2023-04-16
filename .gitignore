@@ -9,6 +9,11 @@ Lux-Design-S2
 # C extensions
 *.so
 
+*.gz
+*.tar.gz
+replay.json
+*.json
+
 # Distribution / packaging
 .Python
 build/

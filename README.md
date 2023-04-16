@@ -14,3 +14,9 @@ git clone https://github.com/Lux-AI-Challenge/Lux-Design-S2.git
 luxai-s2 main.py Bots/V0/main_V0.py -v 2 -o replay.json
 
 ```
+
+## Create Submission
+```shell
+tar -czvf submission.tar.gz *
+
+```
