@@ -5,7 +5,6 @@ import numpy as np
 from dataclasses import dataclass
 from lux.cargo import UnitCargo
 from lux.config import EnvConfig
-import logging
 
 # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
 move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
@@ -35,11 +34,11 @@ class Unit:
         board = game_state.board
         target_pos = self.pos + move_deltas[direction]
         if target_pos[0] < 0 or target_pos[1] < 0 or target_pos[1] >= len(board.rubble) or target_pos[0] >= len(board.rubble[0]):
-            logging.warning(f"Warning, {self.unit_id} tried to get move cost for going off the map")
+            # print("Warning, tried to get move cost for going off the map", file=sys.stderr)
             return None
         factory_there = board.factory_occupancy_map[target_pos[0], target_pos[1]]
         if factory_there not in game_state.teams[self.agent_id].factory_strains and factory_there != -1:
-            logging.warning(f"Warning, {self.unit_id} tried to get move cost for going onto a opposition factory")
+            # print("Warning, tried to get move cost for going onto a opposition factory", file=sys.stderr)
             return None
         rubble_at_target = board.rubble[target_pos[0]][target_pos[1]]
         
@@ -61,7 +60,7 @@ class Unit:
         assert pickup_resource < 5 and pickup_resource >= 0
         return np.array([2, 0, pickup_resource, pickup_amount, repeat, n])
     
-    def dig_cost(self):
+    def dig_cost(self, game_state):
         return self.unit_cfg.DIG_COST
     def dig(self, repeat=0, n=1):
         return np.array([3, 0, 0, 0, repeat, n])
