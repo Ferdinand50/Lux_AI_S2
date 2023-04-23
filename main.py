@@ -7,6 +7,7 @@ from agent import Agent
 from lux.config import EnvConfig
 from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
 import logging
+from modified import globals
 
 
 
@@ -39,7 +40,7 @@ def agent_fn(observation, configurations):
         actions = agent.factory_placement(step, obs, remainingOverageTime)
     else:
         actions = agent.act(step, obs, remainingOverageTime)
-        logging.info(f" actions {actions }")
+        # logging.info(f" actions {actions }")
     
 
     return process_action(actions)
@@ -56,6 +57,8 @@ if __name__ == "__main__":
             return input()
         except EOFError as eof:
             raise SystemExit(eof)
+
+    globals.init_once()
     step = 0
     player_id = 0
     configurations = None

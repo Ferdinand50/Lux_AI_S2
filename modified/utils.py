@@ -35,7 +35,11 @@ def dijkstra(graph: npt.NDArray, src_node: tuple, dst_node: Optional[tuple]=None
     # Set the distance map's values to Infinity
     distances = np.ones(graph.shape)*np.Infinity
     # Set the distance to the source node as 0
-    distances[src_node]=0
+    try:
+        distances[src_node]=0
+    except Exception as e:        
+        logging.info(f"src_node utils.py {src_node}")
+        raise e
     
     # Stores the parent's node position (as tuples) that leads to this vertex
     prev_node = np.zeros(graph.shape, dtype=object)
@@ -98,10 +102,11 @@ def find_absolute_ice_tile(game_state):
     # logging.info(f"ice_tile_locations: {ice_tile_locations}")
 
 
-def get_lt_x_rubble_on_tiles_around_factory(pos,unit_pos=None):
+def get_lt_x_rubble_on_tiles_around_factory(pos,env_cfg,unit_pos=None):
     REMOVE_RUBBLE_AROUND_FACTORY_RADIUS = 3
     MAX_RUBBLE_THRESHHOLD = 25
-
+    # get area around factory, increase the radius and threshold if 
+    # there is no more rubble left
     def get_area(pos,radius,threshhold):
         min_x = max(0,pos[0]-radius)
         min_y = max(0,pos[1]-radius)
@@ -115,12 +120,30 @@ def get_lt_x_rubble_on_tiles_around_factory(pos,unit_pos=None):
         rubble_tiles_locations = np.argwhere(surrounding_rubble_under_x == True)
         return rubble_tiles_locations
 
-    rubble_tiles_locations = []
+    rubble_tiles_locations = get_area(pos, REMOVE_RUBBLE_AROUND_FACTORY_RADIUS, MAX_RUBBLE_THRESHHOLD)
+    # remove the rubble on the way to the ore tile
+    ore_tile = locate_closest_resource(pos,"ore",not_occupied=False)[0]
+    occupied = np.any(np.all(ore_tile == globals.unit_positions,1))
+    if occupied:
+        graph = (np.copy(globals.game_state.board.rubble) \
+            * env_cfg.ROBOTS["LIGHT"].RUBBLE_MOVEMENT_COST).astype(int)
+        graph += env_cfg.ROBOTS["LIGHT"].MOVE_COST
+        obstacles = get_enemy_factory_tiles()
+        for obstacle in obstacles:
+            graph[tuple(obstacle)] = 2047483647
+
+        distances, prev_node = dijkstra(graph,tuple(ore_tile),tuple(pos))
+        path = get_path(distances,prev_node,tuple(ore_tile),tuple(pos))
+        rubble_ore_path = [p for p in path \
+            if globals.game_state.board.rubble[tuple(p)] > 0]
+        rubble_tiles_locations = np.append(rubble_tiles_locations,rubble_ore_path).reshape((-1,2))
+
     while len(rubble_tiles_locations) == 0:
         rubble_tiles_locations = get_area(pos,REMOVE_RUBBLE_AROUND_FACTORY_RADIUS,MAX_RUBBLE_THRESHHOLD)
         REMOVE_RUBBLE_AROUND_FACTORY_RADIUS += 1
-        MAX_RUBBLE_THRESHHOLD += 15
+        MAX_RUBBLE_THRESHHOLD += 20
 
+    # sort rubble_tiles_locations by its distance to the factory and eventually also the unit
     distances = [absolute_distance(pos,tile) for tile in rubble_tiles_locations]
     if unit_pos is None:
         sort = np.argsort(distances)
@@ -128,11 +151,12 @@ def get_lt_x_rubble_on_tiles_around_factory(pos,unit_pos=None):
         distances_to_unit = [absolute_distance(unit_pos,tile) for tile in rubble_tiles_locations]
         sort = np.lexsort((distances,distances_to_unit))
     rubble_tiles_locations = rubble_tiles_locations[sort]
-    return rubble_tiles_locations
+    # WARNING: not sure why i have to convert here 
+    return rubble_tiles_locations.astype(int)
 
 
 def absolute_distance(pos_1: npt.NDArray, pos_2: npt.NDArray):
-    return int(np.sum(abs(pos_1 - pos_2)))
+    return int(np.sum(np.absolute(pos_1 - pos_2)))
 
 
 # @brief: return true if pos_1 is touching pos_2 else false
@@ -150,6 +174,23 @@ def on_factory(pos_1,pos_2):
 def adjacent_to_factory(pos_1,pos_2):
     ds = abs(pos_1 - pos_2)
     return False if ds[0] == 2 and ds[1] == 2 else np.all(ds <= 2)
+
+
+def get_adjacent_factory_tiles(pos,unit_pos):
+    deltas = np.array([[2,-1],[2,0],[2,1],[-2,-1],[-2,0],[-2,1], \
+        [1,-2],[0,-2],[-1,-2],[1,2],[0,2],[-1,2]])
+    tiles = pos + deltas
+    tiles = [t for t in tiles if (0 <= t[0] < 48 and 0 <= t[1] < 48)]
+    # logging.warning(tiles)
+    # logging.info(pos)
+    # logging.info(unit_pos)
+    if np.any(np.all(unit_pos == tiles,1)):
+        return unit_pos
+    idx = np.random.randint(len(tiles))
+    while np.any(np.all(tiles[idx] == globals.unit_positions,1)):
+        idx = np.random.randint(len(tiles))
+    return tiles[idx]
+
 
 
 def get_action_queue_head(unit):
@@ -201,6 +242,8 @@ def get_units_next_action(unit):
 
 # helper function for not overwriting existing action queue of a robot
 def update_action_queue(unit,action,overwrite=False):
+    # logging.info(unit)
+    # logging.warning(action)
     if len(unit.action_queue) == 0 or unit.unit_id in globals.actions or overwrite==True: 
         if unit.unit_id not in globals.actions or overwrite==True:
             globals.actions[unit.unit_id] = np.array([action])
@@ -229,7 +272,7 @@ def append_to_action_queue(unit,action):
 
 def find_most_desperate_unit(helper_unit,units):      
     units_in_need = [unit for unit in units if ((unit.power < \
-        (120 if unit.unit_type=="LIGHT" else 150)) and unit.receiving_help == False)
+        (120 if unit.unit_type=="LIGHT" else 500)))
         or absolute_distance(helper_unit.pos,unit.pos) > 15]
     if len(units_in_need):
         next_to_unit = next((unit for unit in units_in_need \
@@ -263,7 +306,7 @@ def get_surrounding_tiles(center):
         for y in range(-1,2):
             delta = np.array([x,y])
             tiles.append(center+delta)
-    del tiles[4]
+    # del tiles[4]
     return np.array(tiles)
 
 
@@ -274,7 +317,9 @@ def get_empty_adjoining_tile(src,dst):
     pos_next_to = dst + globals.move_deltas[direction]
     if np.all(src == pos_next_to):
         return src
-    tiles = get_adjoining_tiles(dst)
+    tiles = np.array(get_adjoining_tiles(dst))
+    distances = [absolute_distance(src,x) for x in tiles]
+    tiles = tiles[np.argsort(distances)]
     i = 0
     while np.any(np.all(pos_next_to == globals.unit_positions,1)):
         pos_next_to = tiles[i]
@@ -323,17 +368,20 @@ def defeat_unit(unit,opponent,buffer=False):
 
 
 # locate closest factory tile which is also empty
-def locate_closest_factory_tile(pos):
+def locate_closest_factory_tile(pos,reference_pos=None):
+    if reference_pos is None:
+        reference_pos = pos
     closest_factory_tile = locate_closest_factory(pos)[1]
     tiles = get_surrounding_tiles(closest_factory_tile)
-    distances = np.sum(abs(tiles - pos), 1)
+    # FUTURE: delete center from tiles?
+    distances = np.sum(abs(tiles - reference_pos), 1)
     closest_tiles = tiles[np.argsort(distances)]
-    if np.all(pos == closest_tiles[0]):
-        return pos
+    if np.all(reference_pos == closest_tiles[0]):
+        return reference_pos
     i = 0
     while np.any(np.all(closest_tiles[i] == globals.unit_positions,1)):
         i += 1
-        if i == 7:
+        if i == 8:
             i = 0
             break
     return closest_tiles[i]
@@ -353,7 +401,7 @@ def locate_closest_factory(pos):
     return [closest_factory, closest_factory_center, adjacent_to_factory]
 
 
-def locate_closest_resource(pos,resource,reference_pos=None):
+def locate_closest_resource(pos,resource,reference_pos=None,not_occupied=True):
     if reference_pos is None:
         reference_pos = pos        
     resource_map = globals.game_state.board.ice if resource == "ice" else \
@@ -364,14 +412,24 @@ def locate_closest_resource(pos,resource,reference_pos=None):
     i = 0
     if np.all(pos == closest_tiles[0]):
         on_resource_tile = True
-    else:
-        while np.any(np.all(closest_tiles[i] == globals.unit_positions,1)):
-            i += 1
-            if i == len(closest_tiles):
-                i = 0
-                break
+    else:      
+        if not_occupied:
+            unit_positions = np.array([unit.pos for unit in globals.units.values() if unit.unit_type=="HEAVY"])
+            while len(globals.unit_positions) > 0 and \
+                np.any(np.all(closest_tiles[i] == unit_positions,1)):
+                i += 1
+                if i == len(closest_tiles):
+                    i = 0
+                    break
         on_resource_tile = False
     return [closest_tiles[i], on_resource_tile]
+
+
+def simple_locate_closest_resource_(pos,resource_map):         
+    resource_tile_locations = np.argwhere(resource_map == 1)
+    resource_tile_distances = np.sum(np.absolute(resource_tile_locations - pos),1)
+    closest_tile = resource_tile_locations[np.argmin(resource_tile_distances)]
+    return closest_tile
         
 
 def locate_closest_ice_tile(game_state,pos):

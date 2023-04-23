@@ -17,7 +17,7 @@ from .utils import update_action_queue, \
     on_factory, dijkstra, get_path, direction_array_delta, \
     get_lt_x_rubble_on_tiles_around_factory, get_enemy_factory_tiles, \
     absolute_distance, locate_closest_factory_tile, find_most_desperate_unit, \
-    get_empty_adjoining_tile, get_adjoining_tiles
+    get_empty_adjoining_tile, get_adjoining_tiles, get_adjacent_factory_tiles
 from . import globals
 import logging
 
@@ -35,7 +35,8 @@ ICE_DIG_POWER_TRANSFER = 145
 MIN_ORE_IN_CARGO = 15
 NEED_SUPPORT = [
     'dig_ore',
-    'dig_ice'    
+    'heavy_dig_ore'
+    # 'dig_ice'    
 ]
 
 class RobotM(Unit):
@@ -49,7 +50,6 @@ class RobotM(Unit):
     # attributes helps other units to support
     moving_destination: npt.NDArray
     # does the unit already get help
-    receiving_help: bool = False
         
 
     def action_queue_cost(self):
@@ -64,9 +64,9 @@ class RobotM(Unit):
     def navigate_to_coordinate(self,dst_node_org,repeat=0):        
         dst_node = np.copy(dst_node_org)
        # navigate next to dst_node if dst_node is occupied by ally unit
-        if np.any(np.all(dst_node == globals.unit_positions,1)):            
-            direction = direction_to(dst_node,self.pos)
-            dst_node += direction_array_delta(direction)
+        # if np.any(np.all(dst_node == globals.unit_positions,1)):            
+        #     direction = direction_to(dst_node,self.pos)
+        #     dst_node += direction_array_delta(direction)
 
         # abort if dst_node is the same as the current position
         if np.all(self.pos == dst_node):
@@ -121,18 +121,25 @@ class RobotM(Unit):
                 n += 1
             else:
                 factory_tile = locate_closest_factory_tile(path[i-(n-1)])
-                # logging.warning(f"id: {self.unit_id}, n: {n}")
-                if np.all(path[i-(n-1)] == factory_tile) and self.power < (130 if self.unit_type == "LIGHT" else 300) \
-                    and pickup_amount > 0:                     
-                    action = super().pickup(4,pickup_amount)
-                    update_action_queue(self,action)
+                # host_factory_id = globals.unit_tasks[self.unit_id]['host_factory']
+                host_factory_id = self.host_factory
+                closest_factory = locate_closest_factory(factory_tile)[0]
 
-                    if (self.cargo.ice) > 0: 
-                        action = super().transfer(0,0,self.cargo.ice)
-                        update_action_queue(self,action)
-                    if self.cargo.ore > 0:
-                        action = super().transfer(0,1,self.cargo.ore)
-                        update_action_queue(self,action)
+                # logging.warning(f"id: {self.unit_id}, n: {n}")
+                if host_factory_id == closest_factory.unit_id:
+                    if np.all(path[i-(n-1)] == factory_tile) and self.power < \
+                        (130 if self.unit_type == "LIGHT" else 300) and pickup_amount > 0:
+
+                        if globals.pickup_power[host_factory_id] == True:                                 
+                            action = super().pickup(4,pickup_amount)
+                            update_action_queue(self,action)
+
+                        if (self.cargo.ice) > 0: 
+                            action = super().transfer(0,0,self.cargo.ice)
+                            update_action_queue(self,action)
+                        if self.cargo.ore > 0:
+                            action = super().transfer(0,1,self.cargo.ore)
+                            update_action_queue(self,action)
 
                 action = super().move(d,repeat=repeat,n=n)
                 append_to_action_queue(self,action)
@@ -144,11 +151,17 @@ class RobotM(Unit):
                 #     action = super().pickup(4,pickup_amount)
                 #     update_action_queue(self,action)
 
-        if len(directions) and self.power >= \
-            super().move_cost(globals.game_state,directions[0]) + self.action_queue_cost():
-            idx = [np.argwhere(np.all(globals.unit_positions == self.pos,1,))][0]
-            np.delete(globals.unit_positions, idx)
-            globals.unit_positions = np.append(globals.unit_positions,path[1]).reshape((-1,2))
+
+        # logging.info(f"robot.py {self.unit_id} dst_node: {dst_node} directions: {directions}")
+        try:
+            if len(directions) and self.power >= \
+                super().move_cost(globals.game_state,directions[0]) + self.action_queue_cost():
+                idx = [np.argwhere(np.all(globals.unit_positions == self.pos,1,))][0]
+                np.delete(globals.unit_positions, idx)
+                globals.unit_positions = np.append(globals.unit_positions,path[1]).reshape((-1,2))
+        except Exception as e:
+            logging.info(f"directions: {directions}")
+            raise e
             
 
     def total_move_cost(self,dst_node_org):
@@ -208,40 +221,36 @@ class RobotM(Unit):
         pass
 
 
-    # def dig_ore(self):
-    #     [closest_ore_tile, on_ore_tile] = locate_closest_resource(self.pos,"ore")
-    #     closeest_factory_tile = locate_closest_factory(self.pos)[1]
-    #     # pick up power if standing on factory
-    #     if on_factory(self.pos,closeest_factory_tile):
-    #         action = super().pickup(4,ORE_DIG_POWER_PICKUP,repeat=1,n=1)
-    #         update_action_queue(self,action)
-    #     # if not on ore tile navigate now 
-    #     if not on_ore_tile:
-    #         self.navigate_to_coordinate(closest_ore_tile,repeat=1)
-    #     # dig for some time
-    #     # for i in range(10):
-    #     else:
-    #         update_action_queue(self,super().dig(repeat=1,n=10))
-    #     if self.cargo.ore > MIN_ORE_IN_CARGO:
-    #         self.navigate_to_coordinate(closeest_factory_tile,repeat=1)
-    #     if on_factory(self.pos,closeest_factory_tile):
-    #         action = super().transfer(0,1,self.cargo.ore,repeat=1,n=1)
-    #         update_action_queue(self,action)
 
     def recalculate_task(self):
         if self.task == 'dig_ice':
             self.dig_ice()
+        elif self.task == 'distribute_power':
+            self.distribute_power()
         elif self.task == 'dig_ore':
+            self.dig_ore()
+        elif self.task == 'heavy_dig_ore':
             self.dig_ore()
         elif self.task == 'support_dig_ice':
             self.support_dig_ice(self.units_assisting[0])
         elif self.task == 'rm_rubble':
             self.rm_rubble()
+        elif self.task == 'transfer_resources':
+            self.transfer_resources()
+        elif self.task == 'charge_power':
+            self.charge_power()
 
 
     def dig_ore(self):
+        # abort if factory runs out of energy ans has enough metal
+        host_factory_id = globals.unit_tasks[self.unit_id]['host_factory']
+        host_factory = globals.factory_units[host_factory_id]
+        if host_factory.power < 550 and host_factory.cargo.metal > 100:
+            return -1
+        
         [closest_ore_tile, on_ore_tile] = locate_closest_resource(self.pos,"ore")
         closeest_factory_tile = locate_closest_factory(self.pos)[1]
+        
         # pick up power and transfer resources if standing on factory
         if on_factory(self.pos,closeest_factory_tile):
             pickup_amount = self.env_cfg.ROBOTS[self.unit_type].BATTERY_CAPACITY - self.power
@@ -331,21 +340,27 @@ class RobotM(Unit):
 
     def rm_rubble(self):
         closest_factory_tile = locate_closest_factory_tile(self.pos)
-        rubble_tiles = get_lt_x_rubble_on_tiles_around_factory(closest_factory_tile,self.pos)
-        # pick up power
-        
+        rubble_tiles = get_lt_x_rubble_on_tiles_around_factory(closest_factory_tile,self.env_cfg,self.pos)
+        # logging.info(f"roboty.py {self.unit_id} rubble_tiles: {rubble_tiles}")
+        host_factory_id = globals.unit_tasks[self.unit_id]['host_factory']
+        host_factory = globals.factory_units[host_factory_id]
+         
 
         def handle_error():
             self.task = 'None'
             del globals.unit_tasks[self.unit_id]
 
+        # pickup power if there
+        pickup_amount = self.env_cfg.ROBOTS[self.unit_type].BATTERY_CAPACITY - self.power        
+        if on_factory(self.pos,host_factory.pos) and pickup_amount > 2 \
+            and globals.pickup_power[host_factory_id] == True: 
+            action = super().pickup(4,pickup_amount,repeat=0)
+            update_action_queue(self,action)
+
+
         if self.power < MIN_SPARE_POWER_RM_RUBBLE:
             # logging.warning(f"power: {self.power} (robot.py)")
             self.navigate_to_coordinate(closest_factory_tile)
-                # pickup power if there
-                # pickup_amount = self.env_cfg.ROBOTS[self.unit_type].BATTERY_CAPACITY - self.power        
-                # action = super().pickup(4,pickup_amount,repeat=0)
-                # update_action_queue(self,action)
         # navigate to rubble tile and dig                
         elif len(rubble_tiles):
             # change the target rubble tile as long as the target rubble tile 
@@ -364,7 +379,10 @@ class RobotM(Unit):
             rubble_map = globals.game_state.board.rubble
             rubble_value = rubble_map[tuple(rubble_tiles[i])]
             n = max(1,ceil(rubble_value / self.env_cfg.ROBOTS[self.unit_type].DIG_RUBBLE_REMOVED))
-            update_action_queue(self,super().dig(n=n))
+            # do not run out of power
+            max_n = max((self.power // self.env_cfg.ROBOTS[self.unit_type].DIG_COST) \
+                - self.total_move_cost(host_factory.pos),1)
+            update_action_queue(self,super().dig(n=min(n,max_n)))
         else:
             handle_error()
         
@@ -372,14 +390,21 @@ class RobotM(Unit):
     def distribute_power(self):
         host_factory_id = globals.unit_tasks[self.unit_id]['host_factory']
         host_factory = globals.factory_units[host_factory_id]
-        factory_pos = locate_closest_factory_tile(self.pos)
+        factory_pos = locate_closest_factory_tile(host_factory.pos,self.pos)
 
         # pick up power
         pickup_amount = self.env_cfg.ROBOTS[self.unit_type].BATTERY_CAPACITY - self.power
-        if on_factory(host_factory.pos,self.pos) and pickup_amount > 0:
+        if on_factory(host_factory.pos,self.pos) and pickup_amount > 0 and \
+            globals.pickup_power[host_factory_id] == True:
             action = super().pickup(4,pickup_amount)
             update_action_queue(self,action)
-
+            if self.cargo.ice > 0:
+                action = super().transfer(0,0,self.cargo.ice)
+                update_action_queue(self,action)
+            if self.cargo.ore > 0:
+                action = super().transfer(0,1,self.cargo.ore)
+                update_action_queue(self,action)
+                
         # navigate to unit which is in need (has the fewest power, but move forward if it is moving)
         units_in_need = [unit for unit in host_factory.robots if unit.task in NEED_SUPPORT]
         # if len(units_in_need) == 0:
@@ -398,8 +423,6 @@ class RobotM(Unit):
 
         if self.power > (self.total_move_cost(unit.pos) * 2) \
             + self.total_move_cost(factory_pos) + 30:
-            # WARNING: not working like, since it gets resetted next step, move this to globals.init_once
-            unit.receiving_help = True
             # navigigate to unit and supply power and pickup resources
             pos_next_to = get_empty_adjoining_tile(self.pos,unit.pos)
             # abort mission if there is free tile next to the unit
@@ -409,7 +432,7 @@ class RobotM(Unit):
                 # transfer resources to assisting unit (self) if the units cargo
                 # reaches the threshold "MIN_RESOURCES_IN_UNIT", so its worth
                 # to update the units action queue
-                if max(unit.cargo.ice, unit.cargo.ore) > MIN_RESOURCES_IN_UNIT:
+                if max(unit.cargo.ice, unit.cargo.ore) > 100: #MIN_RESOURCES_IN_UNIT if unit.unit_type == "LIGHT" else 100:
                     direction = direction_to(unit.pos,self.pos)
                     transfer_resource = 0 if unit.cargo.ice > unit.cargo.ore else 1
                     transfer_amount = self.calculate_free_cargo()
@@ -431,7 +454,6 @@ class RobotM(Unit):
                         update_action_queue(self,action,overwrite=True)
         # navigate to host factory, pickup power and transfer ice/ ore to factory
         else:
-            unit.receiving_help = False
             pickup_amount = self.env_cfg.ROBOTS[self.unit_type].BATTERY_CAPACITY - self.power
             if self.navigate_to_coordinate(factory_pos) == -1 and pickup_amount > 1:
                 action = super().pickup(4,pickup_amount)
@@ -444,9 +466,98 @@ class RobotM(Unit):
             if self.cargo.ore > 0:
                 action = super().transfer(direction,1,self.cargo.ore)
                 update_action_queue(self,action)
-                
+
+
+    def distribute_power_advanced(self,adjacent_units):
+        host_factory_id = globals.unit_tasks[self.unit_id]['host_factory']
+        host_factory = globals.factory_units[host_factory_id]
+        fac_dis_1 = absolute_distance(self.pos,host_factory.pos)
+
+        for unit in adjacent_units:
+            fac_dis_2 = absolute_distance(unit.pos,host_factory.pos)
+            next_action = get_units_next_action(unit)
+            receiving_power = next_action[0] ==  2 and next_action[2] == 4
+            if fac_dis_2 > fac_dis_1 \
+                and self.power > 100 and unit.power < 100 and not receiving_power: 
+                #transfer power to unit
+                requested_transfer_amount = \
+                    (self.env_cfg.ROBOTS[unit.unit_type].BATTERY_CAPACITY-unit.power)
+                available_power = (self.power - self.total_move_cost(host_factory.pos)) - 5
+                transfer_amount = min(available_power,requested_transfer_amount)
+                if transfer_amount > 0:
+                    direction = direction_to(self.pos,unit.pos)
+                    action = super().transfer(direction,4,transfer_amount)
+                    update_action_queue(self,action,overwrite=True)
+
+
+                #case unit_2 is moving
+                if next_action[0] == 0:
+                    if max(unit.cargo.ore,unit.cargo.ice) > 0:
+                        direction = direction_to(unit.pos,self.pos)
+                        transfer_resource = 0 if unit.cargo.ice > unit.cargo.ore else 1
+                        transfer_amount = self.calculate_free_cargo()
+                        action = unit.transfer(direction,transfer_resource,transfer_amount)
+                        update_action_queue(unit,action,overwrite=True)
+                    else:
+                        action = unit.move(0)
+                        update_action_queue(unit,action,overwrite=True)
+
+    def transfer_resources(self):
+        host_factory_id = globals.unit_tasks[self.unit_id]['host_factory']
+        host_factory = globals.factory_units[host_factory_id]
+        other_factories = np.array([f for f in globals.factory_units.values() \
+            if f.unit_id != host_factory_id],dtype=object)
         
+        distances = [absolute_distance(self.pos,f.pos) \
+            for f in other_factories]
+        other_factories = other_factories[np.argsort(distances)]
+        
+        # h_need_power = True if host_factory.power < 750 else False
+        # h_need_ice = True if host_factory.cargo.ice < 100 else False
+        h_need_metal = True if host_factory.cargo.metal < 100 else False
 
+        for factory in other_factories:
+            # f_need_power = True if factory.power < 750 else False
+            # f_need_ice = True if factory.cargo.ice < 100 else False
+            f_need_metal = True if factory.cargo.metal < 100 else False
+            # factory needs metal
+            if f_need_metal and not h_need_metal:
+                if self.cargo.metal < 30:
+                    pos = locate_closest_factory_tile(host_factory.pos,reference_pos=self.pos)
+                    if self.navigate_to_coordinate(pos) == -1:
+                        action = super().pickup(3,self.calculate_free_cargo())
+                        update_action_queue(self,action)
+                else:
+                    pos = locate_closest_factory_tile(factory.pos,reference_pos=self.pos)
+                    if self.navigate_to_coordinate(pos) == -1:
+                        action = super().transfer(0,3,100)
+                        update_action_queue(self,action)
+                break
+            # host factory needs metal
+            elif h_need_metal and not f_need_metal:
+                if self.cargo.metal < 30:
+                    pos = locate_closest_factory_tile(factory.pos,reference_pos=self.pos)
+                    if self.navigate_to_coordinate(pos) == -1:
+                        action = super().pickup(3,self.calculate_free_cargo())
+                        update_action_queue(self,action)
+                else:
+                    pos = locate_closest_factory_tile(host_factory.pos,reference_pos=self.pos)
+                    if self.navigate_to_coordinate(pos) == -1:
+                        action = super().transfer(0,3,100)
+                        update_action_queue(self,action)
+                break
 
-
+    def charge_power(self,r=1):
+        host_factory_id = globals.unit_tasks[self.unit_id]['host_factory']
+        host_factory = globals.factory_units[host_factory_id]
+        tile = get_adjacent_factory_tiles(host_factory.pos,self.pos)
+        if self.navigate_to_coordinate(tile) == -1:
+            direction = direction_to(self.pos,host_factory.pos)            
+            a =  super().move(0,repeat=r,n=8)
+            append_to_action_queue(self,a)            
+            action = super().transfer(direction,4,70,repeat=r)
+            append_to_action_queue(self,action)
+        # logging.info(f"robot.py globals.actions {self.unit_id} {globals.actions[self.unit_id]}")
+                 
+        
         
